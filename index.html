@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-TF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | LRV Seguros</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- PapaParse para ler arquivos CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/papaparse/5.3.2/papaparse.min.js"></script>
+    <!-- SheetJS para ler arquivos XLSX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .transition-all { transition: all 0.2s ease-in-out; }
+        input[type="file"]::file-selector-button { @apply bg-[#00aeef] text-white font-semibold py-2 px-4 rounded-lg border-none cursor-pointer transition-all hover:bg-[#0095cc]; }
+        .main-page { display: none; }
+        .main-page.active { display: block; }
+        .nav-link.active { background-color: #e0f2fe; color: #003265; font-weight: 600; }
+        .nav-link.active i { color: #00aeef; }
+        .time-group-btn.active { @apply bg-white text-[#003265] font-semibold shadow-sm; }
+        #loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.5); z-index: 9999;
+            display: none; justify-content: center; align-items: center;
+        }
+        .loader {
+            border: 5px solid #f3f3f3; border-top: 5px solid #00aeef;
+            border-radius: 50%; width: 50px; height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        /* Estilos para a página de exibição */
+        .ranking-bar { transition: width 0.5s ease-in-out; }
+        .ranking-item { animation: fadeIn 0.5s ease-out forwards; opacity: 0; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div id="loading-overlay">
+        <div class="text-center">
+            <div class="loader mx-auto"></div>
+            <p id="loading-message" class="text-white mt-4 font-semibold">Processando...</p>
+        </div>
+    </div>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-page" class="flex items-center justify-center min-h-screen bg-slate-100">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg border border-slate-200">
+            <img src="https://lrvseguros.com.br/wp-content/uploads/2018/11/logo-lrv-seguros.svg" alt="Logo LRV Seguros" class="h-16 mx-auto">
+            <h2 class="text-2xl font-bold text-center text-[#003265]">Acesso ao Dashboard</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="email" class="text-sm font-medium text-slate-700">Email</label>
+                    <input type="email" id="email" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]">
+                </div>
+                <div>
+                    <label for="password" class="text-sm font-medium text-slate-700">Senha</label>
+                    <input type="password" id="password" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]">
+                </div>
+                <p id="login-error" class="text-sm text-red-600 h-4"></p>
+                <button type="submit" class="w-full px-4 py-2 font-semibold text-white bg-[#003265] rounded-lg hover:bg-blue-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00aeef]">Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONTAINER PRINCIPAL DA APLICAÇÃO (ESCONDIDO POR PADRÃO) -->
+    <div id="app-container" class="hidden">
+        <div class="flex min-h-screen">
+            <!-- Barra Lateral de Navegação -->
+            <aside class="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+                <div class="h-20 flex items-center justify-center px-4">
+                     <img src="https://lrvseguros.com.br/wp-content/uploads/2018/11/logo-lrv-seguros.svg" alt="Logo LRV Seguros" class="h-12">
+                </div>
+                <nav id="sidebar-nav" class="flex-1 px-4 py-6 space-y-2">
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all active" data-target="dashboard-page">Dashboard<i data-lucide="layout-dashboard" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all" data-target="apolices-page">Apólices<i data-lucide="file-text" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all" data-target="sinistros-page">Sinistros<i data-lucide="shield-alert" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all" data-target="clientes-page">Clientes<i data-lucide="users" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all hidden" data-role="administrador" data-target="uploads-page">Uploads<i data-lucide="upload-cloud" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all hidden" data-role="administrador" data-target="display-page">Tela de Exibição<i data-lucide="monitor" class="w-5 h-5 text-slate-400"></i></a>
+                    <a href="#" class="nav-link flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all" data-target="manual-page">Manual<i data-lucide="book-open" class="w-5 h-5 text-slate-400"></i></a>
+                </nav>
+                <div class="px-4 py-6 border-t border-slate-200">
+                     <div class="px-4 py-2 mb-2 text-center">
+                        <p id="user-email" class="text-sm font-medium text-slate-700 truncate" title="Usuário logado"></p>
+                        <p id="user-role" class="text-xs text-slate-500"></p>
+                    </div>
+                    <a href="#" id="logout-btn" class="flex items-center justify-between px-4 py-2.5 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all">Sair<i data-lucide="log-out" class="w-5 h-5 text-slate-400"></i></a>
+                </div>
+            </aside>
+            
+            <div class="flex-1 overflow-y-auto">
+                <!-- PÁGINA DO DASHBOARD -->
+                <main id="dashboard-page" class="main-page active p-6 md:p-10">
+                    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                        <div><h2 class="text-3xl font-bold text-[#003265]">Dashboard de Análise</h2><p class="text-slate-500 mt-1">Visualize os dados de produção em tempo real.</p></div>
+                    </header>
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-8 flex flex-col md:flex-row items-center justify-end gap-4"><div class="flex items-center gap-4 w-full md:w-auto"><div><label for="startDate" class="block text-sm font-medium text-slate-700 mb-1">De:</label><input type="date" id="startDate" class="w-full md:w-auto p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]"></div><div><label for="endDate" class="block text-sm font-medium text-slate-700 mb-1">Até:</label><input type="date" id="endDate" class="w-full md:w-auto p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]"></div></div></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-5"><div class="p-3 bg-teal-100 rounded-lg"><i data-lucide="layers" class="w-8 h-8 text-teal-600"></i></div><div><p class="text-sm font-medium text-slate-500">Total de Apólices</p><p id="totalApolices" class="text-2xl font-bold text-[#003265]">-</p></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-5"><div class="p-3 bg-sky-100 rounded-lg"><i data-lucide="wallet" class="w-8 h-8 text-sky-600"></i></div><div><p class="text-sm font-medium text-slate-500">Prêmio Líquido Total</p><p id="totalPremio" class="text-2xl font-bold text-[#003265]">-</p></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-5"><div class="p-3 bg-amber-100 rounded-lg"><i data-lucide="piggy-bank" class="w-8 h-8 text-amber-600"></i></div><div><p class="text-sm font-medium text-slate-500">Comissão Total</p><p id="totalComissao" class="text-2xl font-bold text-[#003265]">-</p></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 flex items-center gap-5"><div class="p-3 bg-rose-100 rounded-lg"><i data-lucide="users" class="w-8 h-8 text-rose-600"></i></div><div><p class="text-sm font-medium text-slate-500">Clientes Únicos</p><p id="totalClientes" class="text-2xl font-bold text-[#003265]">-</p></div></div></div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-lg font-semibold text-[#003265] mb-4">Apólices por Produto</h3><div class="h-80"><canvas id="produtosChart"></canvas></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-lg font-semibold text-[#003265] mb-4">Top 5 Seguradoras (Prêmio)</h3><div id="topSeguradoras" class="space-y-4"><p class="text-sm text-slate-500">Aguardando dados...</p></div></div><div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200"><div class="flex flex-wrap justify-between items-center mb-4 gap-2"><h3 class="text-lg font-semibold text-[#003265]">Produção por Período</h3><div id="timeGroupButtons" class="flex gap-1 p-1 bg-slate-100 rounded-lg"><button class="time-group-btn px-3 py-1 text-sm rounded-md text-slate-600" data-group="day">Dia</button><button class="time-group-btn active px-3 py-1 text-sm rounded-md" data-group="month">Mês</button><button class="time-group-btn px-3 py-1 text-sm rounded-md text-slate-600" data-group="year">Ano</button></div></div><div class="h-80"><canvas id="producaoPorDataChart"></canvas></div></div>
+                    <div class="lg:col-span-3 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-[#003265]">Top 10 Produtores (Prêmio)</h3>
+                            <a href="#" id="open-display-page-btn" data-role="administrador" class="hidden text-[#00aeef] hover:text-[#0095cc] transition-colors" title="Abrir em tela cheia">
+                                <i data-lucide="external-link" class="w-5 h-5"></i>
+                            </a>
+                        </div>
+                        <div id="topProdutores" class="space-y-4">
+                            <p class="text-sm text-slate-500">Aguardando dados...</p>
+                        </div>
+                    </div>
+                    </div>
+                </main>
+                
+                <main id="apolices-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Consulta de Apólices</h2><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><input type="text" id="searchApolices" placeholder="Buscar por cliente, apólice, seguradora..." class="w-full p-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]"><div class="overflow-x-auto"><table class="w-full text-sm text-left text-slate-500"><thead class="text-xs text-slate-700 uppercase bg-slate-50"><tr><th scope="col" class="px-6 py-3">Cliente</th><th scope="col" class="px-6 py-3">Apólice</th><th scope="col" class="px-6 py-3">Seguradora</th><th scope="col" class="px-6 py-3">Produto</th><th scope="col" class="px-6 py-3">Prêmio Líquido</th><th scope="col" class="px-6 py-3">Comissão</th><th scope="col" class="px-6 py-3">Início Vigência</th></tr></thead><tbody id="apolicesTableBody"><tr><td colspan="7" class="text-center p-4">Aguardando dados do Firebase...</td></tr></tbody></table></div></div></main>
+                <main id="sinistros-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Análise de Sinistralidade</h2><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Prêmio do Período</p><p id="sinistroTotalPremio" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Valor dos Sinistros</p><p id="sinistroTotalValor" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Total de Sinistros</p><p id="sinistroTotalCount" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Sinistralidade</p><p id="sinistralidadePercent" class="text-3xl font-bold text-red-500 mt-1">-</p></div></div></main>
+                <main id="clientes-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Lista de Clientes</h2><input type="text" id="searchClientes" placeholder="Buscar por cliente..." class="w-full p-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]"><div id="clientesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><p class="text-slate-500 col-span-full">Aguardando dados do Firebase...</p></div></main>
+                
+                <main id="uploads-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Upload de Arquivos</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Produção</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de produção. As informações serão adicionadas ao banco de dados e refletirão em todo o dashboard.</p><div class="flex-1 w-full"><label for="fileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de produção:</label><input type="file" id="fileInput" accept=".csv, .xlsx" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Sinistros</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de sinistros. Os dados serão usados para calcular a sinistralidade na página correspondente.</p><div class="flex-1 w-full"><label for="sinistroFileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de sinistros:</label><input type="file" id="sinistroFileInput" accept=".csv, .xlsx" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div></div></main>
+
+                <main id="manual-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Manual de Uso e Formato das Planilhas</h2><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8"><h3 class="text-xl font-semibold text-[#003265] mb-4">1. Planilha de Produção</h3><p class="text-slate-600 mb-4">Este arquivo alimenta o <strong>Dashboard</strong>, a página de <strong>Apólices</strong> e a de <strong>Clientes</strong>. Certifique-se de que o cabeçalho (primeira linha) da sua planilha contenha exatamente os nomes listados abaixo.</p><div class="overflow-x-auto"><table class="w-full text-sm text-left text-slate-500"><thead class="text-xs text-slate-700 uppercase bg-slate-50"><tr><th class="px-6 py-3">Coluna (Exemplo)</th><th class="px-6 py-3">Nome Exato no Cabeçalho</th><th class="px-6 py-3">Descrição e Formato</th></tr></thead><tbody><tr class="border-b"><td class="px-6 py-4 font-mono">A</td><td class="px-6 py-4 font-semibold">Cliente</td><td class="px-6 py-4">Nome do cliente. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">B</td><td class="px-6 py-4 font-semibold">Apólice</td><td class="px-6 py-4">Número da apólice. (Texto/Número)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">C</td><td class="px-6 py-4 font-semibold">Seguradora</td><td class="px-6 py-4">Nome da seguradora. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">D</td><td class="px-6 py-4 font-semibold">Produto</td><td class="px-6 py-4">Nome do produto/ramo do seguro. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">E</td><td class="px-6 py-4 font-semibold">Grupo de produção</td><td class="px-6 py-4">Nome do produtor/corretor. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">F</td><td class="px-6 py-4 font-semibold">Prêmio líq. antes do desc.</td><td class="px-6 py-4">Valor do prêmio líquido. (Número, ex: 1250,50)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">G</td><td class="px-6 py-4 font-semibold">Comissão</td><td class="px-6 py-4">Valor da comissão. (Número, ex: 300,00)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">H</td><td class="px-6 py-4 font-semibold">Início de Vigência</td><td class="px-6 py-4">Data de início da apólice. (Formato DD/MM/AAAA ou YYYY-MM-DD)</td></tr></tbody></table></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">2. Planilha de Sinistros</h3><p class="text-slate-600 mb-4">Este arquivo alimenta a página de <strong>Sinistros</strong>. O cálculo da sinistralidade depende do correto preenchimento desta planilha e da planilha de produção.</p><div class="overflow-x-auto"><table class="w-full text-sm text-left text-slate-500"><thead class="text-xs text-slate-700 uppercase bg-slate-50"><tr><th class="px-6 py-3">Coluna (Exemplo)</th><th class="px-6 py-3">Nome Exato no Cabeçalho</th><th class="px-6 py-3">Descrição e Formato</th></tr></thead><tbody><tr class="border-b"><td class="px-6 py-4 font-mono">A</td><td class="px-6 py-4 font-semibold">Data do Aviso</td><td class="px-6 py-4">Data do aviso do sinistro. <strong class="text-red-500">Essencial para filtrar.</strong> (Formato DD/MM/AAAA ou YYYY-MM-DD)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">B</td><td class="px-6 py-4 font-semibold">Valor do Sinistro</td><td class="px-6 py-4">Valor total pago no sinistro. <strong class="text-red-500">Essencial para o cálculo.</strong> (Número, ex: 5000,00)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono text-slate-400">C</td><td class="px-6 py-4 font-semibold text-slate-400">Cliente</td><td class="px-6 py-4 text-slate-400">(Opcional) Nome do cliente para referência.</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono text-slate-400">D</td><td class="px-6 py-4 font-semibold text-slate-400">Apólice</td><td class="px-6 py-4 text-slate-400">(Opcional) Número da apólice para referência.</td></tr><tr class="border-b bg-slate-50"><td class="px-6 py-4 text-slate-600" colspan="3"><strong>Importante:</strong> Você pode ter outras colunas, mas a ordem e os nomes das colunas <strong>obrigatórias</strong> devem ser mantidos para que a importação funcione corretamente.</td></tr></tbody></table></div></div></main>
+            </div>
+        </div>
+    </div>
+    
+    <!-- TELA DE EXIBIÇÃO (SEPARADA DO CONTAINER PRINCIPAL) -->
+    <main id="display-page" class="main-page p-6 md:p-10 min-h-screen w-full" style="background-color: #0d1117;">
+        <div class="w-full max-w-7xl mx-auto">
+            <header class="text-center mb-10">
+                <img src="https://lrvseguros.com.br/wp-content/uploads/2018/11/logo-lrv-seguros.svg" alt="Logo LRV Seguros" class="h-16 mx-auto mb-4">
+                <h1 class="text-4xl font-extrabold tracking-tight text-white">Ranking de Produção</h1>
+                <p class="text-slate-400">Top 10 Produtores por Prêmio Líquido</p>
+            </header>
+            <div id="ranking-container-display" class="space-y-4"></div>
+            <footer class="text-center mt-10 text-sm text-slate-500"><p>Atualizado em: <span id="last-updated-display">--:--:--</span></p></footer>
+        </div>
+    </main>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ====================================================================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCgpMA5hKqSEiFaNejf3RSeP3Gp6QcH70M",
+            authDomain: "dashboard-lrv-seguros.firebaseapp.com",
+            projectId: "dashboard-lrv-seguros",
+            storageBucket: "dashboard-lrv-seguros.appspot.com",
+            messagingSenderId: "96258338429",
+            appId: "COPIE_O_APP_ID_DO_SEU_CONSOLE_FIREBASE"
+        };
+        // ====================================================================================
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // =======================================================
+        //                 INICIALIZAÇÃO E SETUP
+        // =======================================================
+        lucide.createIcons();
+
+        let productionData = [], sinistroData = [];
+        let produtosChartInstance = null, producaoChartInstance = null;
+        let currentGroupBy = 'month';
+        let unsubscribeProducao = null, unsubscribeSinistros = null;
+        
+        // =======================================================
+        //                 DADOS FICTÍCIOS (FALLBACK)
+        // =======================================================
+        const fakeProductionData = [
+            { "Cliente": "Transportadora Veloz", "Apólice": "A123", "Seguradora": "Porto Seguro", "Produto": "RCTR-C", "Grupo de produção": "Ana Silva", "Prêmio líq. antes do desc.": 2500.50, "Comissão": 500.10, "Início de Vigência": "2025-08-10" },
+            { "Cliente": "Logística Pontual", "Apólice": "B456", "Seguradora": "Allianz", "Produto": "RCF-DC", "Grupo de produção": "Bruno Costa", "Prêmio líq. antes do desc.": 1800.00, "Comissão": 360.00, "Início de Vigência": "2025-08-15" },
+            { "Cliente": "Comércio Justo", "Apólice": "C789", "Seguradora": "Tokio Marine", "Produto": "Empresarial", "Grupo de produção": "Carlos Dias", "Prêmio líq. antes do desc.": 3200.75, "Comissão": 640.15, "Início de Vigência": "2025-07-20" },
+            { "Cliente": "Transportadora Veloz", "Apólice": "D012", "Seguradora": "Sompo Seguros", "Produto": "Frota", "Grupo de produção": "Ana Silva", "Prêmio líq. antes do desc.": 5500.00, "Comissão": 1100.00, "Início de Vigência": "2025-07-01" },
+            { "Cliente": "Indústria Forte", "Apólice": "E345", "Seguradora": "Porto Seguro", "Produto": "Empresarial", "Grupo de produção": "Daniela Souza", "Prêmio líq. antes do desc.": 4100.20, "Comissão": 820.04, "Início de Vigência": "2025-09-01" },
+            { "Cliente": "Logística Pontual", "Apólice": "F678", "Seguradora": "Tokio Marine", "Produto": "RCTR-C", "Grupo de produção": "Bruno Costa", "Prêmio líq. antes do desc.": 2200.00, "Comissão": 440.00, "Início de Vigência": "2025-09-05" },
+            { "Cliente": "Transportadora Veloz", "Apólice": "G901", "Seguradora": "Allianz", "Produto": "RCF-DC", "Grupo de produção": "Ana Silva", "Prêmio líq. antes do desc.": 1950.80, "Comissão": 390.16, "Início de Vigência": "2025-06-12" },
+            { "Cliente": "Comércio Justo", "Apólice": "H234", "Seguradora": "Sompo Seguros", "Produto": "Empresarial", "Grupo de produção": "Carlos Dias", "Prêmio líq. antes do desc.": 3300.00, "Comissão": 660.00, "Início de Vigência": "2025-06-25" },
+            { "Cliente": "Indústria Forte", "Apólice": "I567", "Seguradora": "Allianz", "Produto": "Frota", "Grupo de produção": "Daniela Souza", "Prêmio líq. antes do desc.": 6800.00, "Comissão": 1360.00, "Início de Vigência": "2025-08-22" },
+            { "Cliente": "Logística Pontual", "Apólice": "J890", "Seguradora": "Porto Seguro", "Produto": "RCTR-C", "Grupo de produção": "Bruno Costa", "Prêmio líq. antes do desc.": 2800.00, "Comissão": 560.00, "Início de Vigência": "2025-09-10" },
+            { "Cliente": "Varejo Total", "Apólice": "K112", "Seguradora": "Tokio Marine", "Produto": "Empresarial", "Grupo de produção": "Carlos Dias", "Prêmio líq. antes do desc.": 1500.00, "Comissão": 300.00, "Início de Vigência": "2025-09-12" },
+            { "Cliente": "Frota Ágil", "Apólice": "L334", "Seguradora": "Sompo Seguros", "Produto": "Frota", "Grupo de produção": "Daniela Souza", "Prêmio líq. antes do desc.": 7200.00, "Comissão": 1440.00, "Início de Vigência": "2025-07-18" },
+        ];
+        const fakeSinistroData = [
+            { "Data do Aviso": "2025-08-20", "Valor do Sinistro": 1200.00, "Cliente": "Transportadora Veloz", "Apólice": "A123" },
+            { "Data do Aviso": "2025-09-02", "Valor do Sinistro": 500.00, "Cliente": "Logística Pontual", "Apólice": "B456" },
+            { "Data do Aviso": "2025-07-25", "Valor do Sinistro": 3500.00, "Cliente": "Indústria Forte", "Apólice": "E345" },
+        ];
+        // =======================================================
+        
+        const loginPage = document.getElementById('login-page');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userEmailDisplay = document.getElementById('user-email');
+        const userRoleDisplay = document.getElementById('user-role');
+        
+        const fileInput = document.getElementById('fileInput');
+        const sinistroFileInput = document.getElementById('sinistroFileInput');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const searchApolicesInput = document.getElementById('searchApolices');
+        const searchClientesInput = document.getElementById('searchClientes');
+        const sidebarNav = document.getElementById('sidebar-nav');
+        const timeGroupButtons = document.getElementById('timeGroupButtons');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingMessage = document.getElementById('loading-message');
+        const openDisplayPageBtn = document.getElementById('open-display-page-btn');
+
+        const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        // =======================================================
+        //            LÓGICA DE AUTENTICAÇÃO E ESTADO
+        // =======================================================
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDocRef = doc(db, "users", user.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data();
+                    userEmailDisplay.textContent = user.email;
+                    userEmailDisplay.title = user.email;
+                    userRoleDisplay.textContent = userData.role === 'administrador' ? 'Administrador' : 'Corretor';
+                    const adminElements = document.querySelectorAll('[data-role="administrador"]');
+                    if (userData.role === 'administrador') {
+                        adminElements.forEach(el => el.classList.remove('hidden'));
+                    } else {
+                        adminElements.forEach(el => el.classList.add('hidden'));
+                    }
+                    loginPage.style.display = 'none';
+                    appContainer.style.display = 'block';
+                    initializeDataListeners();
+                } else {
+                    console.error("Perfil do usuário não encontrado no Firestore.");
+                    signOut(auth);
+                }
+            } else {
+                loginPage.style.display = 'flex';
+                appContainer.style.display = 'none';
+                if (unsubscribeProducao) unsubscribeProducao();
+                if (unsubscribeSinistros) unsubscribeSinistros();
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = e.target.email.value;
+            const password = e.target.password.value;
+            loginError.textContent = '';
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => {
+                    console.error("Erro de login:", error.code);
+                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+                        loginError.textContent = 'Email ou senha inválidos.';
+                    } else {
+                        loginError.textContent = 'Ocorreu um erro ao logar.';
+                    }
+                });
+        });
+
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            signOut(auth);
+        });
+
+        function initializeDataListeners() {
+            unsubscribeProducao = onSnapshot(collection(db, "producao"), (snapshot) => {
+                if (snapshot.empty) {
+                    console.log("Nenhum dado de produção encontrado. Usando dados de exemplo.");
+                    productionData = fakeProductionData; // Usa dados fictícios se o Firebase estiver vazio
+                } else {
+                    productionData = snapshot.docs.map(doc => doc.data());
+                }
+
+                if (productionData.length > 0 && !startDateInput.value && !endDateInput.value) {
+                    setInitialDates(productionData);
+                }
+                processAllData();
+            });
+            unsubscribeSinistros = onSnapshot(collection(db, "sinistros"), (snapshot) => {
+                if (snapshot.empty) {
+                    console.log("Nenhum dado de sinistro encontrado. Usando dados de exemplo.");
+                    sinistroData = fakeSinistroData; // Usa dados fictícios se o Firebase estiver vazio
+                } else {
+                    sinistroData = snapshot.docs.map(doc => doc.data());
+                }
+                processAllData();
+            });
+        }
+        
+        // =======================================================
+        //          EVENT LISTENERS PARA FUNCIONALIDADES
+        // =======================================================
+        fileInput.addEventListener('change', (e) => handleFileSelect(e, 'producao'));
+        sinistroFileInput.addEventListener('change', (e) => handleFileSelect(e, 'sinistros'));
+        startDateInput.addEventListener('change', processAllData);
+        endDateInput.addEventListener('change', processAllData);
+        searchApolicesInput.addEventListener('keyup', () => renderApolicesTable(getFilteredProductionData()));
+        searchClientesInput.addEventListener('keyup', () => renderClientesPage(getFilteredProductionData()));
+        
+        if (timeGroupButtons) {
+            timeGroupButtons.addEventListener('click', (e) => {
+                const button = e.target.closest('.time-group-btn');
+                if (button) {
+                    currentGroupBy = button.dataset.group;
+                    document.querySelectorAll('.time-group-btn').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    renderProducaoPorDataChart(getFilteredProductionData(), currentGroupBy);
+                }
+            });
+        }
+        
+        function navigateToPage(targetId) {
+            const displayPage = document.getElementById('display-page');
+            const targetLink = document.querySelector(`.nav-link[data-target="${targetId}"]`);
+            
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            if (targetLink) {
+                targetLink.classList.add('active');
+            }
+
+            if (targetId === 'display-page') {
+                appContainer.classList.add('hidden');
+                displayPage.classList.add('active');
+                document.querySelectorAll('#app-container .main-page').forEach(page => page.classList.remove('active'));
+            } else {
+                displayPage.classList.remove('active');
+                appContainer.classList.remove('hidden');
+                document.querySelectorAll('#app-container .main-page').forEach(page => {
+                    page.classList.remove('active');
+                    if (page.id === targetId) {
+                        page.classList.add('active');
+                    }
+                });
+            }
+            processAllData();
+        }
+
+        sidebarNav.addEventListener('click', (e) => {
+            const link = e.target.closest('.nav-link');
+            if (!link) return;
+            e.preventDefault();
+            navigateToPage(link.dataset.target);
+        });
+
+        openDisplayPageBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            navigateToPage('display-page');
+        });
+
+        // =======================================================
+        //        UPLOAD DE ARQUIVOS PARA O FIREBASE
+        // =======================================================
+        function handleFileSelect(event, collectionName) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const uploadDataToFirebase = async (parsedData) => {
+                loadingMessage.textContent = `Enviando ${parsedData.length} registros...`;
+                loadingOverlay.style.display = 'flex';
+                try {
+                    for (const row of parsedData) {
+                        const cleanRow = {};
+                        for (const key in row) {
+                            const newKey = key.trim();
+                            cleanRow[newKey] = row[key];
+                        }
+                        await addDoc(collection(db, collectionName), cleanRow);
+                    }
+                    alert(`${parsedData.length} registros enviados com sucesso para a coleção "${collectionName}"!`);
+                } catch (error) {
+                    console.error("Erro ao enviar dados para o Firebase:", error);
+                    alert("Ocorreu um erro ao enviar os dados. Verifique o console.");
+                } finally {
+                    loadingOverlay.style.display = 'none';
+                    event.target.value = '';
+                }
+            };
+            const fileName = file.name.toLowerCase();
+            if (fileName.endsWith('.csv')) {
+                Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res) => uploadDataToFirebase(res.data) });
+            } else if (fileName.endsWith('.xlsx')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                    uploadDataToFirebase(jsonData);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                alert("Formato de arquivo não suportado.");
+            }
+        }
+        
+        // =======================================================
+        //          LÓGICA PRINCIPAL DE PROCESSAMENTO DE DADOS
+        // =======================================================
+        function processAllData() {
+            if (productionData.length === 0 && sinistroData.length === 0) return;
+            
+            const filteredProdData = getFilteredProductionData();
+            const activePage = document.querySelector('.main-page.active');
+            if (!activePage) return;
+
+            switch (activePage.id) {
+                case 'dashboard-page':
+                    renderDashboardMetrics(filteredProdData);
+                    renderProdutosChart(filteredProdData);
+                    renderProducaoPorDataChart(filteredProdData, currentGroupBy);
+                    renderTopSeguradoras(filteredProdData);
+                    renderTopProdutores(filteredProdData);
+                    break;
+                case 'apolices-page':
+                    renderApolicesTable(filteredProdData);
+                    break;
+                case 'clientes-page':
+                    renderClientesPage(filteredProdData);
+                    break;
+                case 'sinistros-page':
+                    processAndDisplaySinistralidade();
+                    break;
+                case 'display-page':
+                    renderDisplayPageRanking(productionData);
+                    break;
+            }
+        }
+
+
+        function getFilteredProductionData() {
+            if (!productionData) return [];
+            const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
+            const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+            if(startDate) startDate.setMinutes(startDate.getMinutes() + startDate.getTimezoneOffset());
+            if(endDate) { endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset()); endDate.setHours(23, 59, 59, 999); }
+            return productionData.filter(row => {
+                const vigenciaDate = parseDate(row['Início de Vigência']);
+                if (!vigenciaDate) return false;
+                const isAfterStart = startDate ? vigenciaDate >= startDate : true;
+                const isBeforeEnd = endDate ? vigenciaDate <= endDate : true;
+                return isAfterStart && isBeforeEnd;
+            });
+        }
+        
+        // =======================================================
+        // FUNÇÕES DE RENDERIZAÇÃO E UTILITÁRIAS
+        // =======================================================
+        const chartTextColor = '#64748b';
+        const chartGridColor = '#e2e8f0';
+
+        function renderDashboardMetrics(data) {
+            const totalApolicesEl = document.getElementById('totalApolices');
+            if (!totalApolicesEl) return; // Guard clause
+
+            const totalPremio = data.reduce((sum, row) => sum + parseCurrency(row['Prêmio líq. antes do desc.']), 0);
+            const totalComissao = data.reduce((sum, row) => sum + parseCurrency(row['Comissão']), 0);
+            totalApolicesEl.textContent = data.length.toLocaleString('pt-BR');
+            document.getElementById('totalPremio').textContent = currencyFormatter.format(totalPremio);
+            document.getElementById('totalComissao').textContent = currencyFormatter.format(totalComissao);
+            document.getElementById('totalClientes').textContent = new Set(data.map(r => r['Cliente'])).size.toLocaleString('pt-BR');
+        }
+
+        function renderProdutosChart(data) {
+            const ctxEl = document.getElementById('produtosChart');
+            if (!ctxEl) return; // Guard clause
+            const ctx = ctxEl.getContext('2d');
+
+            const aggregated = aggregateBy(data, 'Produto');
+            const labels = Object.keys(aggregated);
+            const values = Object.values(aggregated).map(item => item.count);
+            if (produtosChartInstance) produtosChartInstance.destroy();
+            produtosChartInstance = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Nº de Apólices', data: values, backgroundColor: '#00aeef', borderColor: '#0095cc', borderWidth: 1, borderRadius: 5, }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: chartGridColor } }, x: { ticks: { color: chartTextColor }, grid: { color: 'transparent' } } } } });
+        }
+        
+        function renderProducaoPorDataChart(data, groupBy = 'month') {
+            const ctxEl = document.getElementById('producaoPorDataChart');
+            if (!ctxEl) return; // Guard clause
+            const ctx = ctxEl.getContext('2d');
+            
+            const aggregated = data.reduce((acc, row) => {
+                const date = parseDate(row['Início de Vigência']);
+                if (!date) return acc;
+                const year = date.getFullYear(), month = date.getMonth(), day = date.getDate();
+                let key;
+                switch (groupBy) {
+                    case 'day': key = `${String(day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}/${year}`; break;
+                    case 'year': key = year.toString(); break;
+                    default: const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]; key = `${monthNames[month]}/${String(year).slice(-2)}`; break;
+                }
+                if (!acc[key]) acc[key] = { count: 0, dateObj: new Date(year, month, day) };
+                acc[key].count++;
+                return acc;
+            }, {});
+            const sortedData = Object.entries(aggregated).sort(([, a], [, b]) => a.dateObj - b.dateObj);
+            const labels = sortedData.map(([key]) => key);
+            const values = sortedData.map(([, { count }]) => count);
+            if (producaoChartInstance) producaoChartInstance.destroy();
+            producaoChartInstance = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Nº de Apólices', data: values, borderColor: '#8dc63f', backgroundColor: 'rgba(141, 198, 63, 0.1)', fill: true, tension: 0.2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { color: chartTextColor }, grid: { color: chartGridColor } }, x: { ticks: { color: chartTextColor }, grid: { color: 'transparent' } } } } });
+        }
+
+        function renderTopList(elementId, data, groupKey, valueKey, topN = 5) {
+            const container = document.getElementById(elementId);
+            if (!container) return; // Guard clause
+
+            const aggregated = aggregateBy(data, groupKey, valueKey);
+            const topItems = Object.entries(aggregated).sort(([,a],[,b]) => b.value - a.value).slice(0, topN);
+            container.innerHTML = '';
+            if (topItems.length === 0) { container.innerHTML = `<p class="text-sm text-slate-500">Nenhum dado para exibir.</p>`; return; }
+            topItems.forEach(([name, { value }]) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'flex items-center justify-between py-1';
+                itemDiv.innerHTML = `<p class="font-medium text-sm text-slate-700">${name}</p><span class="text-sm font-semibold text-[#8dc63f]">${currencyFormatter.format(value)}</span>`;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function renderTopSeguradoras(data) { renderTopList('topSeguradoras', data, 'Seguradora', 'Prêmio líq. antes do desc.', 5); }
+        function renderTopProdutores(data) { renderTopList('topProdutores', data, 'Grupo de produção', 'Prêmio líq. antes do desc.', 10); }
+
+        function renderDisplayPageRanking(data) {
+            const container = document.getElementById('ranking-container-display');
+            if (!container) return; // Guard clause
+            
+            const lastUpdatedSpan = document.getElementById('last-updated-display');
+            const colors = ['#00aeef', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444', '#3b82f6', '#14b8a6', '#f97316', '#d946ef'];
+            container.innerHTML = '';
+            if (data.length === 0) { container.innerHTML = `<p class="text-center text-slate-400">Aguardando dados de produção...</p>`; return; }
+            const aggregated = aggregateBy(data, 'Grupo de produção', 'Prêmio líq. antes do desc.');
+            const topProducers = Object.entries(aggregated).sort(([, a], [, b]) => b.value - a.value).slice(0, 10);
+            if (topProducers.length === 0) return;
+            const maxPremium = topProducers[0][1].value;
+            topProducers.forEach(([name, { value }], index) => {
+                const barWidth = maxPremium > 0 ? (value / maxPremium) * 100 : 0;
+                const color = colors[index % colors.length];
+                const item = document.createElement('div');
+                item.className = 'ranking-item bg-slate-800/50 p-4 rounded-lg flex items-center gap-4 border border-slate-700';
+                item.style.animationDelay = `${index * 100}ms`;
+                item.innerHTML = `
+                    <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-slate-700 text-white font-bold text-lg rounded-full">${index + 1}</div>
+                    <div class="flex-grow">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="font-bold text-lg text-white">${name}</span>
+                            <span class="font-semibold text-lg" style="color: ${color};">${currencyFormatter.format(value)}</span>
+                        </div>
+                        <div class="w-full bg-slate-700 rounded-full h-2.5">
+                            <div class="ranking-bar h-2.5 rounded-full" style="width: ${barWidth}%; background-color: ${color};"></div>
+                        </div>
+                    </div>`;
+                container.appendChild(item);
+            });
+            lastUpdatedSpan.textContent = new Date().toLocaleTimeString('pt-BR');
+        }
+
+        function renderApolicesTable(data) {
+            const tbody = document.getElementById('apolicesTableBody');
+            if (!tbody) return; // Guard clause
+
+            const searchTerm = searchApolicesInput.value.toLowerCase();
+            tbody.innerHTML = '';
+            const dataToRender = data.filter(row => Object.values(row).some(val => String(val).toLowerCase().includes(searchTerm)));
+            if (dataToRender.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4">Nenhum resultado encontrado.</td></tr>'; return; }
+            dataToRender.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-200 hover:bg-slate-50';
+                tr.innerHTML = `<td class="px-6 py-4 font-medium text-slate-900">${row['Cliente'] || ''}</td><td class="px-6 py-4">${row['Apólice'] || ''}</td><td class="px-6 py-4">${row['Seguradora'] || ''}</td><td class="px-6 py-4">${row['Produto'] || ''}</td><td class="px-6 py-4">${currencyFormatter.format(parseCurrency(row['Prêmio líq. antes do desc.']))}</td><td class="px-6 py-4">${currencyFormatter.format(parseCurrency(row['Comissão']))}</td><td class="px-6 py-4">${row['Início de Vigência'] || ''}</td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderClientesPage(data) {
+            const container = document.getElementById('clientesList');
+            if (!container) return; // Guard clause
+
+            const searchTerm = searchClientesInput.value.toLowerCase();
+            container.innerHTML = '';
+            const aggregated = aggregateBy(data, 'Cliente', 'Prêmio líq. antes do desc.');
+            const filteredClients = Object.entries(aggregated).filter(([cliente]) => cliente.toLowerCase().includes(searchTerm));
+            if (filteredClients.length === 0) { container.innerHTML = '<p class="text-slate-500 col-span-full">Nenhum cliente encontrado.</p>'; return; }
+            for (const [cliente, { count, value }] of filteredClients) {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-4 rounded-lg border border-slate-200 hover:shadow-lg hover:-translate-y-1 transition-all';
+                card.innerHTML = `<h4 class="font-bold text-[#003265] truncate">${cliente}</h4><div class="text-sm text-slate-500 mt-2 space-y-1"><p><strong>Apólices:</strong> <span class="font-medium text-slate-700">${count}</span></p><p><strong>Prêmio Total:</strong> <span class="font-medium text-[#8dc63f]">${currencyFormatter.format(value)}</span></p></div>`;
+                container.appendChild(card);
+            }
+        }
+        
+        function processAndDisplaySinistralidade() {
+            const sinistroTotalPremioEl = document.getElementById('sinistroTotalPremio');
+            if (!sinistroTotalPremioEl) return; // Guard clause
+
+            const filteredProdData = getFilteredProductionData();
+            const totalPremio = filteredProdData.reduce((sum, row) => sum + parseCurrency(row['Prêmio líq. antes do desc.']), 0);
+            const filteredSinistroData = sinistroData.filter(row => {
+                const sinistroDate = parseDate(row['Data do Aviso']);
+                if (!sinistroDate) return false;
+                const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
+                const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+                if(startDate) startDate.setMinutes(startDate.getMinutes() + startDate.getTimezoneOffset());
+                if(endDate) { endDate.setMinutes(endDate.getMinutes() + endDate.getTimezoneOffset()); endDate.setHours(23, 59, 59, 999); }
+                const isAfterStart = startDate ? sinistroDate >= startDate : true;
+                const isBeforeEnd = endDate ? sinistroDate <= endDate : true;
+                return isAfterStart && isBeforeEnd;
+            });
+            const totalSinistroValor = filteredSinistroData.reduce((sum, row) => sum + parseCurrency(row['Valor do Sinistro']), 0);
+            const sinistralidade = (totalPremio > 0) ? (totalSinistroValor / totalPremio) * 100 : 0;
+            sinistroTotalPremioEl.textContent = currencyFormatter.format(totalPremio);
+            document.getElementById('sinistroTotalValor').textContent = currencyFormatter.format(totalSinistroValor);
+            document.getElementById('sinistroTotalCount').textContent = filteredSinistroData.length.toLocaleString('pt-BR');
+            document.getElementById('sinistralidadePercent').textContent = `${sinistralidade.toFixed(2)}%`;
+        }
+
+        function setInitialDates(data) {
+            if (data.length === 0) return;
+            const dates = data.map(row => parseDate(row['Início de Vigência'])).filter(date => date);
+            if (dates.length === 0) return;
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            startDateInput.value = minDate.toISOString().split('T')[0];
+            endDateInput.value = maxDate.toISOString().split('T')[0];
+        }
+
+        function aggregateBy(data, key, valueKey = null) {
+            return data.reduce((acc, row) => {
+                const group = row[key];
+                if (group) {
+                    if (!acc[group]) acc[group] = { count: 0, value: 0 };
+                    acc[group].count++;
+                    if (valueKey) acc[group].value += parseCurrency(row[valueKey]);
+                }
+                return acc;
+            }, {});
+        }
+        
+        function parseCurrency(value) {
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') return parseFloat(value.replace(',', '.')) || 0;
+            return 0;
+        }
+
+        function parseDate(dateStr) {
+            if (!dateStr || (typeof dateStr === 'string' && dateStr.trim() === '')) return null;
+            if (dateStr instanceof Date && !isNaN(dateStr)) return dateStr;
+            let date;
+            if (typeof dateStr === 'string') {
+                if (dateStr.includes('/')) {
+                    const parts = dateStr.split(' ')[0].split('/');
+                    if (parts.length === 3) date = new Date(parts[2], parts[1] - 1, parts[0]);
+                } else { date = new Date(dateStr); }
+            }
+            if (date instanceof Date && !isNaN(date)) { date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); return date; }
+            return null;
+        }
+    </script>
+
+</body>
+</html>
+
