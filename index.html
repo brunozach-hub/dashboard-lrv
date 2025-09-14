@@ -32,7 +32,7 @@
         .nav-link.active { background-color: #e0f2fe; color: #003265; font-weight: 600; }
         .nav-link.active i { color: #00aeef; }
         .time-group-btn.active { @apply bg-white text-[#003265] font-semibold shadow-sm; }
-        #loading-overlay {
+        #loading-overlay, #confirmation-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background-color: rgba(0, 0, 0, 0.5); z-index: 9999;
             display: none; justify-content: center; align-items: center;
@@ -62,6 +62,18 @@
         </div>
     </div>
 
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="confirmation-modal">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm mx-auto">
+            <h3 class="text-lg font-bold text-slate-800">Confirmar Exclusão</h3>
+            <p class="text-sm text-slate-600 my-4">Tem certeza de que deseja apagar <strong id="data-count-to-delete"></strong> registos de <strong id="collection-to-delete"></strong>? Esta ação não pode ser desfeita.</p>
+            <div class="flex justify-end gap-4">
+                <button id="cancel-delete-btn" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200">Cancelar</button>
+                <button id="confirm-delete-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">Confirmar Exclusão</button>
+            </div>
+        </div>
+    </div>
+
     <!-- TELA DE LOGIN -->
     <div id="login-page" class="flex items-center justify-center min-h-screen bg-slate-100">
         <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-xl shadow-lg border border-slate-200">
@@ -84,6 +96,10 @@
 
     <!-- CONTAINER PRINCIPAL DA APLICAÇÃO (ESCONDIDO POR PADRÃO) -->
     <div id="app-container" class="hidden">
+         <!-- Banner de Modo Teste -->
+        <div id="test-mode-banner" class="hidden bg-yellow-400 text-yellow-900 text-center p-2 font-semibold">
+            Você está em modo de demonstração. <a href="#" onclick="window.location.reload()" class="underline hover:text-yellow-800">Clique aqui</a> para carregar os dados reais.
+        </div>
         <div class="flex min-h-screen">
             <!-- Barra Lateral de Navegação -->
             <aside class="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
@@ -135,7 +151,26 @@
                 <main id="sinistros-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Análise de Sinistralidade</h2><div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Prêmio do Período</p><p id="sinistroTotalPremio" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Valor dos Sinistros</p><p id="sinistroTotalValor" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Total de Sinistros</p><p id="sinistroTotalCount" class="text-3xl font-bold text-[#003265] mt-1">-</p></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><p class="text-sm font-medium text-slate-500">Sinistralidade</p><p id="sinistralidadePercent" class="text-3xl font-bold text-red-500 mt-1">-</p></div></div></main>
                 <main id="clientes-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Lista de Clientes</h2><input type="text" id="searchClientes" placeholder="Buscar por cliente..." class="w-full p-2 border border-slate-300 rounded-lg mb-4 focus:ring-2 focus:ring-[#00aeef] focus:border-[#00aeef]"><div id="clientesList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><p class="text-slate-500 col-span-full">Aguardando dados do Firebase...</p></div></main>
                 
-                <main id="uploads-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Upload de Arquivos</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-8"><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Produção</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de produção. As informações serão adicionadas ao banco de dados e refletirão em todo o dashboard.</p><div class="flex-1 w-full"><label for="fileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de produção:</label><input type="file" id="fileInput" accept=".csv, .xlsx" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Sinistros</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de sinistros. Os dados serão usados para calcular a sinistralidade na página correspondente.</p><div class="flex-1 w-full"><label for="sinistroFileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de sinistros:</label><input type="file" id="sinistroFileInput" accept=".csv, .xlsx" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div></div></main>
+                <main id="uploads-page" class="main-page p-6 md:p-10">
+                    <h2 class="text-3xl font-bold text-[#003265] mb-6">Uploads e Gestão de Dados</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Produção</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de produção. As informações serão adicionadas ao banco de dados.</p><div class="flex-1 w-full"><label for="fileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de produção:</label><input type="file" id="fileInput" accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">Planilha de Sinistros</h3><p class="text-slate-600 mb-4">Envie o arquivo (.xlsx ou .csv) com os dados de sinistros. Os dados serão usados para o cálculo da sinistralidade.</p><div class="flex-1 w-full"><label for="sinistroFileInput" class="block text-sm font-medium text-slate-700 mb-1">Selecione o arquivo de sinistros:</label><input type="file" id="sinistroFileInput" accept=".csv, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-slate-100 hover:file:bg-slate-200"></div></div>
+                    </div>
+                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8">
+                        <h3 class="text-xl font-semibold text-orange-600 mb-4">Modo de Demonstração</h3>
+                        <p class="text-slate-600 mb-4">Clique no botão abaixo para carregar dados fictícios e testar as funcionalidades do dashboard. Para voltar aos dados reais, basta atualizar a página.</p>
+                        <button id="use-test-data-btn" class="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors"><i data-lucide="play-circle" class="w-4 h-4"></i>Carregar Dados de Teste</button>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h3 class="text-xl font-semibold text-red-600 mb-4">Gerenciamento de Dados</h3>
+                        <p class="text-slate-600 mb-4">Use os botões abaixo para limpar os dados existentes antes de enviar um novo relatório atualizado. <strong class="text-red-700">Atenção: esta ação é irreversível.</strong></p>
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button id="clear-production-btn" class="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i>Limpar Dados de Produção</button>
+                            <button id="clear-sinistros-btn" class="flex items-center justify-center gap-2 w-full sm:w-auto px-4 py-2 font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i>Limpar Dados de Sinistros</button>
+                        </div>
+                    </div>
+                </main>
 
                 <main id="manual-page" class="main-page p-6 md:p-10"><h2 class="text-3xl font-bold text-[#003265] mb-6">Manual de Uso e Formato das Planilhas</h2><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8"><h3 class="text-xl font-semibold text-[#003265] mb-4">1. Planilha de Produção</h3><p class="text-slate-600 mb-4">Este arquivo alimenta o <strong>Dashboard</strong>, a página de <strong>Apólices</strong> e a de <strong>Clientes</strong>. Certifique-se de que o cabeçalho (primeira linha) da sua planilha contenha exatamente os nomes listados abaixo.</p><div class="overflow-x-auto"><table class="w-full text-sm text-left text-slate-500"><thead class="text-xs text-slate-700 uppercase bg-slate-50"><tr><th class="px-6 py-3">Coluna (Exemplo)</th><th class="px-6 py-3">Nome Exato no Cabeçalho</th><th class="px-6 py-3">Descrição e Formato</th></tr></thead><tbody><tr class="border-b"><td class="px-6 py-4 font-mono">A</td><td class="px-6 py-4 font-semibold">Cliente</td><td class="px-6 py-4">Nome do cliente. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">B</td><td class="px-6 py-4 font-semibold">Apólice</td><td class="px-6 py-4">Número da apólice. (Texto/Número)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">C</td><td class="px-6 py-4 font-semibold">Seguradora</td><td class="px-6 py-4">Nome da seguradora. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">D</td><td class="px-6 py-4 font-semibold">Produto</td><td class="px-6 py-4">Nome do produto/ramo do seguro. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">E</td><td class="px-6 py-4 font-semibold">Grupo de produção</td><td class="px-6 py-4">Nome do produtor/corretor. (Texto)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">F</td><td class="px-6 py-4 font-semibold">Prêmio líq. antes do desc.</td><td class="px-6 py-4">Valor do prêmio líquido. (Número, ex: 1250,50)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">G</td><td class="px-6 py-4 font-semibold">Comissão</td><td class="px-6 py-4">Valor da comissão. (Número, ex: 300,00)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">H</td><td class="px-6 py-4 font-semibold">Início de Vigência</td><td class="px-6 py-4">Data de início da apólice. (Formato DD/MM/AAAA ou YYYY-MM-DD)</td></tr></tbody></table></div></div><div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="text-xl font-semibold text-[#003265] mb-4">2. Planilha de Sinistros</h3><p class="text-slate-600 mb-4">Este arquivo alimenta a página de <strong>Sinistros</strong>. O cálculo da sinistralidade depende do correto preenchimento desta planilha e da planilha de produção.</p><div class="overflow-x-auto"><table class="w-full text-sm text-left text-slate-500"><thead class="text-xs text-slate-700 uppercase bg-slate-50"><tr><th class="px-6 py-3">Coluna (Exemplo)</th><th class="px-6 py-3">Nome Exato no Cabeçalho</th><th class="px-6 py-3">Descrição e Formato</th></tr></thead><tbody><tr class="border-b"><td class="px-6 py-4 font-mono">A</td><td class="px-6 py-4 font-semibold">Data do Aviso</td><td class="px-6 py-4">Data do aviso do sinistro. <strong class="text-red-500">Essencial para filtrar.</strong> (Formato DD/MM/AAAA ou YYYY-MM-DD)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono">B</td><td class="px-6 py-4 font-semibold">Valor do Sinistro</td><td class="px-6 py-4">Valor total pago no sinistro. <strong class="text-red-500">Essencial para o cálculo.</strong> (Número, ex: 5000,00)</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono text-slate-400">C</td><td class="px-6 py-4 font-semibold text-slate-400">Cliente</td><td class="px-6 py-4 text-slate-400">(Opcional) Nome do cliente para referência.</td></tr><tr class="border-b"><td class="px-6 py-4 font-mono text-slate-400">D</td><td class="px-6 py-4 font-semibold text-slate-400">Apólice</td><td class="px-6 py-4 text-slate-400">(Opcional) Número da apólice para referência.</td></tr><tr class="border-b bg-slate-50"><td class="px-6 py-4 text-slate-600" colspan="3"><strong>Importante:</strong> Você pode ter outras colunas, mas a ordem e os nomes das colunas <strong>obrigatórias</strong> devem ser mantidos para que a importação funcione corretamente.</td></tr></tbody></table></div></div></main>
             </div>
@@ -159,7 +194,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // ====================================================================================
         const firebaseConfig = {
@@ -168,7 +203,7 @@
             projectId: "dashboard-lrv-seguros",
             storageBucket: "dashboard-lrv-seguros.appspot.com",
             messagingSenderId: "96258338429",
-            appId: "COPIE_O_APP_ID_DO_SEU_CONSOLE_FIREBASE"
+            appId: "1:96258338429:web:a1b2c3d4e5f6g7h8i9j0" // Exemplo, substitua pelo seu
         };
         // ====================================================================================
 
@@ -217,6 +252,7 @@
         const logoutBtn = document.getElementById('logout-btn');
         const userEmailDisplay = document.getElementById('user-email');
         const userRoleDisplay = document.getElementById('user-role');
+        const testModeBanner = document.getElementById('test-mode-banner');
         
         const fileInput = document.getElementById('fileInput');
         const sinistroFileInput = document.getElementById('sinistroFileInput');
@@ -229,6 +265,12 @@
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingMessage = document.getElementById('loading-message');
         const openDisplayPageBtn = document.getElementById('open-display-page-btn');
+        const confirmationModal = document.getElementById('confirmation-modal');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const clearProductionBtn = document.getElementById('clear-production-btn');
+        const clearSinistrosBtn = document.getElementById('clear-sinistros-btn');
+        const useTestDataBtn = document.getElementById('use-test-data-btn');
 
         const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -287,10 +329,12 @@
         });
 
         function initializeDataListeners() {
+            if (unsubscribeProducao) unsubscribeProducao();
             unsubscribeProducao = onSnapshot(collection(db, "producao"), (snapshot) => {
+                testModeBanner.classList.add('hidden'); // Esconde o banner se carregar dados reais
                 if (snapshot.empty) {
                     console.log("Nenhum dado de produção encontrado. Usando dados de exemplo.");
-                    productionData = fakeProductionData; // Usa dados fictícios se o Firebase estiver vazio
+                    productionData = fakeProductionData; 
                 } else {
                     productionData = snapshot.docs.map(doc => doc.data());
                 }
@@ -300,10 +344,12 @@
                 }
                 processAllData();
             });
+
+            if (unsubscribeSinistros) unsubscribeSinistros();
             unsubscribeSinistros = onSnapshot(collection(db, "sinistros"), (snapshot) => {
                 if (snapshot.empty) {
                     console.log("Nenhum dado de sinistro encontrado. Usando dados de exemplo.");
-                    sinistroData = fakeSinistroData; // Usa dados fictícios se o Firebase estiver vazio
+                    sinistroData = fakeSinistroData; 
                 } else {
                     sinistroData = snapshot.docs.map(doc => doc.data());
                 }
@@ -372,49 +418,146 @@
         });
 
         // =======================================================
-        //        UPLOAD DE ARQUIVOS PARA O FIREBASE
+        //        UPLOAD E GESTÃO DE DADOS
         // =======================================================
         function handleFileSelect(event, collectionName) {
             const file = event.target.files[0];
+            const inputElement = event.target;
             if (!file) return;
-            const uploadDataToFirebase = async (parsedData) => {
-                loadingMessage.textContent = `Enviando ${parsedData.length} registros...`;
+
+            const processAndUpload = async (data) => {
+                if (!data || data.length === 0) {
+                    alert("O ficheiro está vazio ou não pôde ser lido corretamente. Verifique o formato e os cabeçalhos.");
+                    if (inputElement) inputElement.value = '';
+                    return;
+                }
+
+                // Auto-ajusta as datas do dashboard com base no ficheiro que está a ser enviado
+                if(collectionName === 'producao') {
+                    setInitialDates(data);
+                }
+
+                loadingMessage.textContent = `Enviando ${data.length} registros...`;
                 loadingOverlay.style.display = 'flex';
+
                 try {
-                    for (const row of parsedData) {
+                    const uploadPromises = data.map(row => {
                         const cleanRow = {};
                         for (const key in row) {
                             const newKey = key.trim();
-                            cleanRow[newKey] = row[key];
+                            let value = row[key];
+
+                            if (newKey === 'Início de Vigência' || newKey === 'Data do Aviso') {
+                                const parsedDate = parseDate(value);
+                                value = parsedDate ? parsedDate.toISOString().split('T')[0] : null;
+                            }
+                            cleanRow[newKey] = value;
                         }
-                        await addDoc(collection(db, collectionName), cleanRow);
-                    }
-                    alert(`${parsedData.length} registros enviados com sucesso para a coleção "${collectionName}"!`);
+                        return addDoc(collection(db, collectionName), cleanRow);
+                    });
+                    await Promise.all(uploadPromises);
+                    alert(`${data.length} registros enviados com sucesso para a coleção "${collectionName}"!`);
                 } catch (error) {
                     console.error("Erro ao enviar dados para o Firebase:", error);
                     alert("Ocorreu um erro ao enviar os dados. Verifique o console.");
                 } finally {
                     loadingOverlay.style.display = 'none';
-                    event.target.value = '';
+                    if (inputElement) inputElement.value = '';
                 }
             };
+            
             const fileName = file.name.toLowerCase();
+            const reader = new FileReader();
+
             if (fileName.endsWith('.csv')) {
-                Papa.parse(file, { header: true, skipEmptyLines: true, complete: (res) => uploadDataToFirebase(res.data) });
+                 reader.onload = (e) => {
+                    Papa.parse(e.target.result, {
+                        header: true,
+                        skipEmptyLines: true,
+                        complete: (res) => processAndUpload(res.data),
+                        error: (err) => {
+                            alert(`Erro ao ler o ficheiro CSV: ${err.message}`);
+                            console.error("CSV Parse Error:", err);
+                        }
+                    });
+                 };
+                 reader.readAsText(file);
             } else if (fileName.endsWith('.xlsx')) {
-                const reader = new FileReader();
                 reader.onload = (e) => {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-                    uploadDataToFirebase(jsonData);
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+                        const sheetName = workbook.SheetNames[0];
+                        const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+                        processAndUpload(jsonData);
+                    } catch (err) {
+                        alert(`Erro ao ler o ficheiro XLSX: ${err.message}`);
+                        console.error("XLSX Parse Error:", err);
+                    }
                 };
                 reader.readAsArrayBuffer(file);
             } else {
-                alert("Formato de arquivo não suportado.");
+                alert("Formato de ficheiro não suportado (use .xlsx ou .csv).");
             }
         }
+
+        async function clearCollection(collectionName) {
+            loadingMessage.textContent = `Apagando dados de ${collectionName}...`;
+            loadingOverlay.style.display = 'flex';
+            try {
+                const querySnapshot = await getDocs(collection(db, collectionName));
+                const deletePromises = [];
+                querySnapshot.forEach((docRef) => {
+                    deletePromises.push(deleteDoc(docRef.ref));
+                });
+                await Promise.all(deletePromises);
+                alert(`Todos os dados de ${collectionName} foram apagados com sucesso!`);
+            } catch (error) {
+                console.error(`Erro ao apagar coleção ${collectionName}:`, error);
+                alert(`Ocorreu um erro ao apagar os dados.`);
+            } finally {
+                loadingOverlay.style.display = 'none';
+                confirmationModal.style.display = 'none';
+            }
+        }
+
+        clearProductionBtn.addEventListener('click', () => {
+            document.getElementById('collection-to-delete').textContent = 'Produção';
+            document.getElementById('data-count-to-delete').textContent = productionData.length;
+            confirmationModal.dataset.collection = 'producao';
+            confirmationModal.style.display = 'flex';
+        });
+
+        clearSinistrosBtn.addEventListener('click', () => {
+            document.getElementById('collection-to-delete').textContent = 'Sinistros';
+            document.getElementById('data-count-to-delete').textContent = sinistroData.length;
+            confirmationModal.dataset.collection = 'sinistros';
+            confirmationModal.style.display = 'flex';
+        });
+
+        cancelDeleteBtn.addEventListener('click', () => {
+            confirmationModal.style.display = 'none';
+        });
+
+        confirmDeleteBtn.addEventListener('click', () => {
+            const collectionName = confirmationModal.dataset.collection;
+            if (collectionName) {
+                clearCollection(collectionName);
+            }
+        });
+
+        useTestDataBtn.addEventListener('click', () => {
+            if (unsubscribeProducao) unsubscribeProducao();
+            if (unsubscribeSinistros) unsubscribeSinistros();
+
+            productionData = fakeProductionData;
+            sinistroData = fakeSinistroData;
+
+            testModeBanner.classList.remove('hidden');
+            setInitialDates(productionData);
+            processAllData();
+            alert("Modo de demonstração ativado. Dados fictícios foram carregados.");
+        });
         
         // =======================================================
         //          LÓGICA PRINCIPAL DE PROCESSAMENTO DE DADOS
@@ -473,7 +616,7 @@
 
         function renderDashboardMetrics(data) {
             const totalApolicesEl = document.getElementById('totalApolices');
-            if (!totalApolicesEl) return; // Guard clause
+            if (!totalApolicesEl) return; 
 
             const totalPremio = data.reduce((sum, row) => sum + parseCurrency(row['Prêmio líq. antes do desc.']), 0);
             const totalComissao = data.reduce((sum, row) => sum + parseCurrency(row['Comissão']), 0);
@@ -485,7 +628,7 @@
 
         function renderProdutosChart(data) {
             const ctxEl = document.getElementById('produtosChart');
-            if (!ctxEl) return; // Guard clause
+            if (!ctxEl) return; 
             const ctx = ctxEl.getContext('2d');
 
             const aggregated = aggregateBy(data, 'Produto');
@@ -497,7 +640,7 @@
         
         function renderProducaoPorDataChart(data, groupBy = 'month') {
             const ctxEl = document.getElementById('producaoPorDataChart');
-            if (!ctxEl) return; // Guard clause
+            if (!ctxEl) return; 
             const ctx = ctxEl.getContext('2d');
             
             const aggregated = data.reduce((acc, row) => {
@@ -523,7 +666,7 @@
 
         function renderTopList(elementId, data, groupKey, valueKey, topN = 5) {
             const container = document.getElementById(elementId);
-            if (!container) return; // Guard clause
+            if (!container) return; 
 
             const aggregated = aggregateBy(data, groupKey, valueKey);
             const topItems = Object.entries(aggregated).sort(([,a],[,b]) => b.value - a.value).slice(0, topN);
@@ -542,7 +685,7 @@
 
         function renderDisplayPageRanking(data) {
             const container = document.getElementById('ranking-container-display');
-            if (!container) return; // Guard clause
+            if (!container) return;
             
             const lastUpdatedSpan = document.getElementById('last-updated-display');
             const colors = ['#00aeef', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444', '#3b82f6', '#14b8a6', '#f97316', '#d946ef'];
@@ -576,7 +719,7 @@
 
         function renderApolicesTable(data) {
             const tbody = document.getElementById('apolicesTableBody');
-            if (!tbody) return; // Guard clause
+            if (!tbody) return; 
 
             const searchTerm = searchApolicesInput.value.toLowerCase();
             tbody.innerHTML = '';
@@ -592,7 +735,7 @@
 
         function renderClientesPage(data) {
             const container = document.getElementById('clientesList');
-            if (!container) return; // Guard clause
+            if (!container) return; 
 
             const searchTerm = searchClientesInput.value.toLowerCase();
             container.innerHTML = '';
@@ -609,7 +752,7 @@
         
         function processAndDisplaySinistralidade() {
             const sinistroTotalPremioEl = document.getElementById('sinistroTotalPremio');
-            if (!sinistroTotalPremioEl) return; // Guard clause
+            if (!sinistroTotalPremioEl) return; 
 
             const filteredProdData = getFilteredProductionData();
             const totalPremio = filteredProdData.reduce((sum, row) => sum + parseCurrency(row['Prêmio líq. antes do desc.']), 0);
@@ -656,21 +799,40 @@
         
         function parseCurrency(value) {
             if (typeof value === 'number') return value;
-            if (typeof value === 'string') return parseFloat(value.replace(',', '.')) || 0;
-            return 0;
+            if (typeof value !== 'string') return 0;
+            
+            // Remove currency symbols, whitespace, and thousand separators (dots)
+            const cleanedString = value.replace(/R\$\s?|\./g, '');
+            // Replace decimal comma with a dot
+            const finalString = cleanedString.replace(',', '.');
+            const number = parseFloat(finalString);
+            return isNaN(number) ? 0 : number;
         }
 
-        function parseDate(dateStr) {
-            if (!dateStr || (typeof dateStr === 'string' && dateStr.trim() === '')) return null;
-            if (dateStr instanceof Date && !isNaN(dateStr)) return dateStr;
-            let date;
-            if (typeof dateStr === 'string') {
-                if (dateStr.includes('/')) {
-                    const parts = dateStr.split(' ')[0].split('/');
-                    if (parts.length === 3) date = new Date(parts[2], parts[1] - 1, parts[0]);
-                } else { date = new Date(dateStr); }
+        function parseDate(dateValue) {
+            if (!dateValue) return null;
+            // If it's already a Date object from XLSX parsing
+            if (dateValue instanceof Date && !isNaN(dateValue)) {
+                return dateValue;
             }
-            if (date instanceof Date && !isNaN(date)) { date.setMinutes(date.getMinutes() + date.getTimezoneOffset()); return date; }
+            if (typeof dateValue !== 'string' || dateValue.trim() === '') return null;
+            
+            let date;
+            // Handles YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}/.test(dateValue)) {
+                date = new Date(dateValue + 'T00:00:00'); // Treat as local time
+            } 
+            // Handles DD/MM/YYYY
+            else if (dateValue.includes('/')) {
+                const parts = dateValue.split(' ')[0].split('/');
+                if (parts.length === 3) {
+                    date = new Date(parts[2], parseInt(parts[1], 10) - 1, parts[0]);
+                }
+            }
+            
+            if (date instanceof Date && !isNaN(date)) {
+                return date;
+            }
             return null;
         }
     </script>
